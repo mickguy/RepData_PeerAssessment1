@@ -29,6 +29,13 @@ The dataset is stored in a comma-separated-value (CSV) file and there are a tota
 ## Loading and preprocessing the data   
 Unzip the downloaded file activity.zip and read the csv into variable activity.
 
+Library ggplot2 is required for a time series plot
+
+
+```r
+library("ggplot2", lib.loc="/Library/Frameworks/R.framework/Versions/3.1/Resources/library")
+```
+
 
 ```r
 unzip("activity.zip")
@@ -54,7 +61,7 @@ Histogram breaks are set equal to *FD (Freedman-Diaconis)* rule which more accur
 hist(totalStepsByDay$total.steps, main="Histogram of Daily Steps (Excluded NA)", xlab="Number of Steps in a Day", col="green", breaks="FD")
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-3-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-4-1.png) 
 
 The mean and median number of steps have been rounded because a **step** is a discrete measurement.   
 
@@ -73,14 +80,97 @@ The median total number of steps taken per day is **10765**.
 
 1. Make a time series plot (i.e. `type = "l"`) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)   
 
+Create a dataframe of the steps by 5 minute interval across all days
 
 ```r
 aveStepsByTimeInterval <- with(activityCompleteCases, aggregate(x=steps, by=list(interval), FUN='mean') )
 names(aveStepsByTimeInterval) <- c("interval", "mean.steps")
-with(aveStepsByTimeInterval, plot(x=interval, y=mean.steps, type="l"))
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-5-1.png) 
+Check the first 13 rows
+
+```r
+head(aveStepsByTimeInterval, 13)
+```
+
+```
+##    interval mean.steps
+## 1         0  1.7169811
+## 2         5  0.3396226
+## 3        10  0.1320755
+## 4        15  0.1509434
+## 5        20  0.0754717
+## 6        25  2.0943396
+## 7        30  0.5283019
+## 8        35  0.8679245
+## 9        40  0.0000000
+## 10       45  1.4716981
+## 11       50  0.3018868
+## 12       55  0.1320755
+## 13      100  0.3207547
+```
+
+The intervals contain jumps when moving from 55 minute intervals to the next hour ex. 55 to 100.    
+
+Create a new dataframe of the aveStepsByTimeInterval
+
+```r
+stepsByHour <- aveStepsByTimeInterval
+```
+
+Fix the intervals. 
+
+```r
+stepsByHour$interval <- seq(from=0,to=1435, by=5)
+```
+
+Create a function to convert the sequential steps to the 24 hr clock and return a column that denotes the hour.
+
+```r
+intervalToHr <- function(val){
+        chrTime <- paste(as.integer(val/60),(val %% 60), sep=":")
+        dateTimeFormat <- strptime(chrTime, format="%H")
+        intTime <- as.integer(strftime(dateTimeFormat, format="%H"))
+        return(as.character(intTime))
+}
+
+stepsByHour$time.hour <- as.integer(vapply(stepsByHour$interval, FUN=intervalToHr, FUN.VALUE="val"))
+```
+
+Check the first 13 rows
+
+```r
+head(stepsByHour, 13)
+```
+
+```
+##    interval mean.steps time.hour
+## 1         0  1.7169811         0
+## 2         5  0.3396226         0
+## 3        10  0.1320755         0
+## 4        15  0.1509434         0
+## 5        20  0.0754717         0
+## 6        25  2.0943396         0
+## 7        30  0.5283019         0
+## 8        35  0.8679245         0
+## 9        40  0.0000000         0
+## 10       45  1.4716981         0
+## 11       50  0.3018868         0
+## 12       55  0.1320755         0
+## 13       60  0.3207547         1
+```
+
+Plot the average number of steps by the 5 minute interval across all days
+
+```r
+g <- ggplot(data=stepsByHour,aes(x=time.hour, y=mean.steps)) 
+g <- g + xlab("Time of Day (24hr)") + ylab("Step Count") + ggtitle("Average Number Steps by Time Interval")
+g <- g + geom_line(aes(color=time.hour,group=1))
+g <- g + geom_text(data=stepsByHour[104,], label=as.character(round(stepsByHour[104,2])))
+g
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-12-1.png) 
 
 2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
 
@@ -166,7 +256,7 @@ This histogram will also use breaks set equal to the *FD (Freedman-Diaconis)* ru
 hist(totalStepsAllCases$total.steps, main="Histogram of Daily Steps (Imputed Cases)", xlab="Number of Steps in a Day", col="blue", breaks="FD")
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-15-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-22-1.png) 
 
 
 Do these values differ from the estimates from the first part of the assignment?    
@@ -291,7 +381,7 @@ with(weekends, plot(interval, average, type="l",
      lwd=2, col="blue"))
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-22-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-29-1.png) 
 
 
 The plots show that the most steps tend to be around the same interval on weekends and weekdays. Weekends, however, show much greater activity during daytime hours and to a later time than on weekdays. 

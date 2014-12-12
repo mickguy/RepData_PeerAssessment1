@@ -34,6 +34,12 @@ The dataset is stored in a comma-separated-value (CSV) file and there are a tota
 ## Loading and preprocessing the data   
 Unzip the downloaded file activity.zip and read the csv into variable activity.
 
+Library ggplot2 is required for a time series plot
+
+```{r}
+library("ggplot2", lib.loc="/Library/Frameworks/R.framework/Versions/3.1/Resources/library")
+```
+
 ```{r CACHE = TRUE}
 unzip("activity.zip")
 activity <- read.csv("activity.csv")
@@ -75,11 +81,54 @@ The median total number of steps taken per day is **`r medianTotalDailySteps`**.
 
 1. Make a time series plot (i.e. `type = "l"`) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)   
 
+Create a dataframe of the steps by 5 minute interval across all days
 ```{r}
 aveStepsByTimeInterval <- with(activityCompleteCases, aggregate(x=steps, by=list(interval), FUN='mean') )
 names(aveStepsByTimeInterval) <- c("interval", "mean.steps")
-with(aveStepsByTimeInterval, plot(x=interval, y=mean.steps, type="l"))
-  
+```
+
+Check the first 13 rows
+```{r}
+head(aveStepsByTimeInterval, 13)
+```
+
+The intervals contain jumps when moving from 55 minute intervals to the next hour ex. 55 to 100.    
+
+Create a new dataframe of the aveStepsByTimeInterval
+```{r}
+stepsByHour <- aveStepsByTimeInterval
+```
+
+Fix the intervals. 
+```{r}
+stepsByHour$interval <- seq(from=0,to=1435, by=5)
+```
+
+Create a function to convert the sequential steps to the 24 hr clock and return a column that denotes the hour.
+```{r}
+intervalToHr <- function(val){
+        chrTime <- paste(as.integer(val/60),(val %% 60), sep=":")
+        dateTimeFormat <- strptime(chrTime, format="%H")
+        intTime <- as.integer(strftime(dateTimeFormat, format="%H"))
+        return(as.character(intTime))
+}
+
+stepsByHour$time.hour <- as.integer(vapply(stepsByHour$interval, FUN=intervalToHr, FUN.VALUE="val"))
+```
+
+Check the first 13 rows
+```{r}
+head(stepsByHour, 13)
+```
+
+Plot the average number of steps by the 5 minute interval across all days
+```{r}
+g <- ggplot(data=stepsByHour,aes(x=time.hour, y=mean.steps)) 
+g <- g + xlab("Time of Day (24hr)") + ylab("Step Count") + ggtitle("Average Number Steps by Time Interval")
+g <- g + geom_line(aes(color=time.hour,group=1))
+g <- g + geom_text(data=stepsByHour[104,], label=as.character(round(stepsByHour[104,2])))
+g
+
 ```
 
 2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
